@@ -8,6 +8,7 @@ import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Scanner;
+import service.exceptions.RegistroNoEncontradoException;
 
 public class AppMenu {
 
@@ -21,35 +22,42 @@ public class AppMenu {
 
     public void mostrarMenu() {
         int opcion;
-        do {
-            System.out.println("\n===== MENU PRINCIPAL =====");
-            System.out.println("1. Crear nuevo usuario");
-            System.out.println("2. Listar usuarios");
-            System.out.println("3. Buscar usuario por ID");
-            System.out.println("4. Actualizar usuario");
-            System.out.println("5. Eliminar usuario (baja logica)");
-            System.out.println("0. Salir");
-            System.out.print("Seleccione una opcion: ");
+        try {
+            do {
+                System.out.println("\n===== MENU PRINCIPAL =====");
+                System.out.println("1. Crear nuevo usuario");
+                System.out.println("2. Listar usuarios");
+                System.out.println("3. Buscar usuario por ID");
+                System.out.println("4. Actualizar usuario");
+                System.out.println("5. Eliminar usuario (baja logica)");
+                System.out.println("0. Salir");
+                System.out.print("Seleccione una opcion: ");
 
-            opcion = leerEntero();
+                opcion = leerEntero();
 
-            switch (opcion) {
-                case 1 ->
-                    crearUsuario();
-                case 2 ->
-                    listarUsuarios();
-                case 3 ->
-                    buscarUsuario();
-                case 4 ->
-                    actualizarUsuario();
-                case 5 ->
-                    eliminarUsuario();
-                case 0 ->
-                    System.out.println("Saliendo...");
-                default ->
-                    System.out.println("Opcion invalida.");
-            }
-        } while (opcion != 0);
+                switch (opcion) {
+                    case 1 ->
+                        crearUsuario();
+                    case 2 ->
+                        listarUsuarios();
+                    case 3 ->
+                        buscarUsuario();
+                    case 4 ->
+                        actualizarUsuario();
+                    case 5 ->
+                        eliminarUsuario();
+                    case 0 -> {
+                        System.out.println("Saliendo...");
+                        Thread.sleep(2000);
+                    }
+                    default ->
+                        System.out.println("Opcion invalida.");
+                }
+            } while (opcion != 0);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+
+        }
     }
 
     private void crearUsuario() {
@@ -81,8 +89,12 @@ public class AppMenu {
             u.setEliminado(false);
             u.setCredencial(cred);
 
+            try{
             usuarioService.insertar(u);
             System.out.println("Usuario creado con exito.");
+            }catch(IllegalArgumentException e){
+                System.out.println("Error al crear usuario: "+e.getMessage());
+            }
 
         } catch (SQLException e) {
             System.err.println("Error al crear usuario: " + e.getMessage());
@@ -107,13 +119,17 @@ public class AppMenu {
 
     private void buscarUsuario() {
         try {
-            System.out.print("\nIngrese el ID del usuario: ");
+            System.out.print("\nIngrese el ID del usuario (0 para cancelar): ");
             long id = leerLong();
-            Usuario u = usuarioService.getById(id);
-            if (u != null) {
-                System.out.println(u);
-            } else {
-                System.out.println("Usuario no encontrado.");
+            if (id==0){
+                this.mostrarMenu();
+            }else{
+                Usuario u = usuarioService.getById(id);
+                if (u != null) {
+                    System.out.println(u);
+                } else {
+                    System.out.println("Usuario no encontrado.");
+                }
             }
         } catch (SQLException e) {
             System.err.println("Error al buscar usuario: " + e.getMessage());
@@ -122,35 +138,42 @@ public class AppMenu {
 
     private void actualizarUsuario() {
         try {
-            System.out.print("\nIngrese el ID del usuario a actualizar: ");
+            System.out.print("\nIngrese el ID del usuario a actualizar: (0 para cancelar)");
             long id = leerLong();
-            Usuario u = usuarioService.getById(id);
-            if (u == null) {
-                System.out.println("Usuario no encontrado.");
-                return;
+            if (id == 0) {
+                this.mostrarMenu();
+            } else {
+                Usuario u = usuarioService.getById(id);
+                if (u == null) {
+                    System.out.println("Usuario no encontrado.");
+                    return;
+                }
+
+                System.out.print("Nuevo email: ");
+                u.setEmail(scanner.nextLine());
+                System.out.print("Activo? (true/false): ");
+                u.setActivo(Boolean.parseBoolean(scanner.nextLine()));
+                u.setFechaRegistro(LocalDateTime.now());
+
+                usuarioService.actualizar(u);
+                System.out.println("Usuario actualizado con exito.");
             }
-
-            System.out.print("Nuevo email: ");
-            u.setEmail(scanner.nextLine());
-            System.out.print("Activo? (true/false): ");
-            u.setActivo(Boolean.parseBoolean(scanner.nextLine()));
-            u.setFechaRegistro(LocalDateTime.now());
-
-            usuarioService.actualizar(u);
-            System.out.println("Usuario actualizado con exito.");
-
         } catch (SQLException e) {
             System.err.println("Error al actualizar usuario: " + e.getMessage());
         }
     }
 
-    private void eliminarUsuario() {
+    private void eliminarUsuario(){
         try {
-            System.out.print("\nIngrese el ID del usuario a eliminar: ");
+            System.out.print("\nIngrese el ID del usuario a eliminar (0 para volver): ");
             long id = leerLong();
-            usuarioService.eliminar(id);
-            System.out.println("Usuario eliminado (baja logica).");
-        } catch (SQLException e) {
+            if (id==0){
+                this.mostrarMenu();
+            }else{
+                usuarioService.eliminar(id);
+                System.out.println("Usuario eliminado (baja logica).");
+            }
+        } catch (SQLException | RegistroNoEncontradoException e) {
             System.err.println("Error al eliminar usuario: " + e.getMessage());
         }
     }
@@ -168,9 +191,22 @@ public class AppMenu {
     private long leerLong() {
         while (true) {
             try {
-                return Long.parseLong(scanner.nextLine());
+                Long n = Long.valueOf(scanner.nextLine());
+                if (n > 0) {
+                    return n;
+                } else if (n == 0) {
+                    System.out.println("Volviendo...");
+                    Thread.sleep(2000);
+                    return 0;
+                } else {
+                    throw new IllegalArgumentException();
+                }
             } catch (NumberFormatException e) {
-                System.out.print("Ingrese un numero valido: ");
+                System.out.print("Ingrese un numero valido (0 para cancelar): ");
+            } catch (IllegalArgumentException e) {
+                System.out.print("El id debe ser mayor a 0.\nIngrese el id (0 para cancelar): ");
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             }
         }
     }

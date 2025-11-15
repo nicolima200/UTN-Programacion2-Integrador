@@ -2,7 +2,7 @@ package entities;
 
 import java.time.LocalDateTime;
 
-public class Usuario {
+public class Usuario{
     private Long id;
     private boolean eliminado;
     private String username;

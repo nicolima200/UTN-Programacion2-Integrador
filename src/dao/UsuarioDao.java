@@ -7,7 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class UsuarioDao implements GenericDao<Usuario> {
-    private Connection conexion;
+    private final Connection conexion;
 
     public UsuarioDao(Connection conexion) {
         this.conexion = conexion;
